@@ -75,3 +75,31 @@ end, {})
 vim.api.nvim_create_user_command("MusicodePrev", function()
   require("musicode").music_prev()
 end, {})
+
+vim.api.nvim_create_user_command("MusicodeOrder", function(a)
+  require("musicode").set_order(a.args ~= "" and a.args or nil)
+end, {
+  nargs = "?",
+  complete = function()
+    return { "sequence", "shuffle", "repeat_one" }
+  end,
+})
+
+vim.api.nvim_create_user_command("MusicodePick", function()
+  require("musicode").music_pick()
+end, {})
+
+vim.api.nvim_create_user_command("MusicodeVolume", function(a)
+  local args = vim.split(vim.trim(a.args), "%s+", { trimempty = true })
+  local mc = require("musicode")
+  if #args == 0 then
+    mc.volume_info()
+    return
+  end
+  if args[1] then
+    mc.set_fg(tonumber(args[1]))
+  end
+  if args[2] then
+    mc.set_bg(tonumber(args[2]))
+  end
+end, { nargs = "*" })

@@ -162,6 +162,7 @@ function M.enable()
   update_beat()
   if cfg.options.music.library then
     library.scan(cfg.options.music.library)
+    library.set_order(cfg.options.music.order)
     library.analyze_all(false)
   end
   if cfg.options.music.autostart and (cfg.options.music.file or library.count() > 0) then
@@ -276,7 +277,7 @@ function M.start_music(file)
   if file then
     m.file = file
   elseif (not m.file or m.file == "") and library.count() > 0 then
-    m.file = library.current() or library.next()
+    m.file = library.advance()
   end
   if not m.file or m.file == "" then
     vim.notify("musicode: set music.file or music.library first", vim.log.levels.WARN)
@@ -325,7 +326,7 @@ function M.toggle_music()
 end
 
 function M.music_next()
-  local p = library.next()
+  local p = library.advance()
   if p then
     M.start_music(p)
   else
@@ -347,12 +348,94 @@ function M.library_scan()
     return
   end
   library.scan(dir)
+  library.set_order(cfg.options.music.order)
   if cfg.options.sound.backend == "rpc" then
     daemon.start(cfg.options.sound)
   end
   local n = library.analyze_all(false)
   vim.notify(
     string.format("musicode library: %d tracks, extracting beats for %d", library.count(), n),
+    vim.log.levels.INFO
+  )
+end
+
+function M.set_order(o)
+  if not o or o == "" then
+    local cur = library.get_order()
+    o = (cur == "sequence" and "shuffle") or (cur == "shuffle" and "repeat_one") or "sequence"
+  end
+  cfg.options.music.order = library.set_order(o)
+  vim.notify("musicode order: " .. cfg.options.music.order, vim.log.levels.INFO)
+end
+
+function M.music_pick()
+  local items = library.list()
+  if #items == 0 then
+    vim.notify("musicode: empty library (set music.library)", vim.log.levels.WARN)
+    return
+  end
+  vim.ui.select(items, {
+    prompt = "musicode: pick a track",
+    format_item = function(p)
+      return p:match("[^/\\]+$") or p
+    end,
+  }, function(choice)
+    if choice then
+      M.start_music(choice)
+    end
+  end)
+end
+
+local function vol_midpoint()
+  local m = cfg.options.music
+  return ((m.volume or 70) + (m.background_volume or 15)) / 2
+end
+
+function M.set_fg(v)
+  if not v then
+    return
+  end
+  v = math.max(0, math.min(100, math.floor(v)))
+  local active = music_vol_cur > vol_midpoint()
+  cfg.options.music.volume = v
+  if music_loaded and sound.rpc_send and active then
+    stop_ramp()
+    music_vol_cur = v
+    sound.rpc_send("musicvol " .. v)
+  end
+  vim.notify("musicode 加强音(foreground): " .. v, vim.log.levels.INFO)
+end
+
+function M.set_bg(v)
+  if not v then
+    return
+  end
+  v = math.max(0, math.min(100, math.floor(v)))
+  local active = music_vol_cur > vol_midpoint()
+  cfg.options.music.background_volume = v
+  if music_loaded and sound.rpc_send and not active then
+    stop_ramp()
+    music_vol_cur = v
+    sound.rpc_send("musicvol " .. v)
+  end
+  vim.notify("musicode 背景音(background): " .. v, vim.log.levels.INFO)
+end
+
+function M.adjust_fg(d)
+  M.set_fg((cfg.options.music.volume or 70) + (d or 0))
+end
+
+function M.adjust_bg(d)
+  M.set_bg((cfg.options.music.background_volume or 15) + (d or 0))
+end
+
+function M.volume_info()
+  vim.notify(
+    string.format(
+      "musicode volume — 加强音 %d / 背景音 %d",
+      cfg.options.music.volume or 70,
+      cfg.options.music.background_volume or 15
+    ),
     vim.log.levels.INFO
   )
 end

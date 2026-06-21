@@ -3,7 +3,7 @@
 让写代码 / 写文像玩音游一样有节奏感。musicode 把你的每次击键变成实时连击与判定，
 让敲键带上动量——专为有连贯敲键习惯的人打造，比如算法竞赛选手和网文写手。
 
-> 状态：MVP（纯 Lua，零依赖）。低延迟音频将由配套的 Rust 守护进程提供，已列入路线图
+> 纯视觉判定**零依赖**即可用；想要低延迟音效 / 背景音乐 / 鼓点提取，再装 Rust 工具链编译配套守护进程
 > （`sound.backend = "rpc"`）。
 
 ## 特性
@@ -24,15 +24,34 @@
 
 ## 安装
 
-### lazy.nvim
+**前置**：纯视觉判定无需任何额外依赖；要**音效 / 背景音乐 / 鼓点**则需 Rust 工具链（`cargo`）来编译守护进程（下方 `build` 步骤会自动执行）。
+
+### lazy.nvim（开箱即用，含音频）
 
 ```lua
 {
   "MisakiForacy/musicode.nvim",
+  build = "cd daemon && cargo build --release",   -- 编译守护进程（需要 cargo）
   config = function()
-    require("musicode").setup({ mode = "flow" })
+    require("musicode").setup({
+      enabled = true,                 -- 启动即生效
+      mode = "flow",                  -- "flow" | "rhythm"
+      sound = { backend = "rpc" },    -- 低延迟音效；不要音频就删掉这一行
+      -- music = {                    -- 想要背景音乐时取消注释
+      --   library = "/你的无版权音乐文件夹",
+      --   autostart = true,
+      -- },
+    })
   end,
 }
+```
+
+### lazy.nvim（最简：纯视觉、零依赖）
+
+```lua
+{ "MisakiForacy/musicode.nvim", config = function()
+    require("musicode").setup({ enabled = true })
+  end }
 ```
 
 ### packer.nvim
@@ -40,11 +59,16 @@
 ```lua
 use({
   "MisakiForacy/musicode.nvim",
+  run = "cd daemon && cargo build --release",
   config = function()
-    require("musicode").setup({ mode = "flow" })
+    require("musicode").setup({ enabled = true, mode = "flow" })
   end,
 })
 ```
+
+> - 用本地副本：把 `"MisakiForacy/musicode.nvim"` 换成 `dir = "/绝对/路径/musicode"`（绝对**文件夹**路径，并加 `name = "musicode"`）。`dir` 是文件夹路径，**不是** `owner/repo`。
+> - 若 `build` 报 `cargo not found`：确保 `~/.cargo/bin`（Windows 为 `%USERPROFILE%\.cargo\bin`）在 PATH，或手动进 `daemon/` 跑 `cargo build --release`。
+> - 没装 Rust 也能用，`sound.backend` 保持默认 `"none"`（纯视觉）。
 
 ## 使用
 
@@ -59,9 +83,15 @@ use({
 :MusicodeTrain           " 从本地节奏日志训练个人画像（个性化难度）
 :MusicodeLibrary         " 扫描 music.library 文件夹并自动提取每首的鼓点
 :MusicodeNext / :MusicodePrev  " 切换曲库中的上一首 / 下一首
+:MusicodeOrder [sequence|shuffle|repeat_one]  " 播放顺序：设置或无参循环切换
+:MusicodePick            " 列表选曲（vim.ui.select 选择器）
+:MusicodeVolume [fg] [bg] " 调节加强音 / 背景音（0..100；无参显示当前值）
 ```
 
 进入插入模式开始打字——判定文字（`PERFECT x12`、`GOOD` 等）会出现在当前行行尾。
+
+> 想用快捷键微调音量，映射到 Lua 即可：`require("musicode").adjust_fg(5)` / `adjust_fg(-5)`（加强音）、
+> `adjust_bg(5)` / `adjust_bg(-5)`（背景音）。
 
 ### 状态栏
 
@@ -103,6 +133,7 @@ require("musicode").setup({
   music = {
     file = nil,             -- 单曲：你自备的（无版权）音频文件路径，需 rpc 后端
     library = nil,          -- 曲库：一个文件夹；其中每首会自动提取鼓点（缓存为 *.beats.json）
+    order = "sequence",     -- 播放顺序："sequence"(顺序) | "shuffle"(随机) | "repeat_one"(单曲循环)
     volume = 70,            -- 前景（敲码时）音量 0..100
     background_volume = 15, -- 背景（停手时）音量；音乐始终播放、不暂停
     swell_ms = 500,         -- 敲码时从背景渐强到前景的时长
@@ -184,8 +215,9 @@ flow 模式的核心玩法：**让音乐随你的敲击保持连贯**。
 - 需要 `sound.backend = "rpc"`（已构建守护进程）并提供一个**你自备的、无版权**的音频文件。
 - 设置 `music.file` 后用 `:MusicodeMusic on`（或 `:MusicodeMusic <文件>`）开始。
 - **自定义曲库**：把一个文件夹设为 `music.library`，其中每首音频在启动 / `:MusicodeLibrary` 时都会
-  **自动提取鼓点**（守护进程 `analyze`，缓存为 `*.beats.json`，已缓存的跳过）；用 `:MusicodeNext` /
-  `:MusicodePrev` 切歌，`:MusicodeMusic`（无参）在未指定单曲时自动从曲库取。
+  **自动提取鼓点**（守护进程 `analyze`，缓存为 `*.beats.json`，已缓存的跳过）。
+  播放顺序 `music.order`：`sequence` 顺序 / `shuffle` 随机 / `repeat_one` 单曲循环（`:MusicodeOrder` 切换）；
+  `:MusicodeNext` / `:MusicodePrev` 切歌，`:MusicodePick` 列表选曲，`:MusicodeMusic`（无参）自动从曲库取。
 - flow 模式（音量包络）：背景音乐**始终播放**、平时较轻（`background_volume`）；连续敲码（含退格）时在
   `swell_ms`（≈0.5s）内**渐强**到前景音量（`volume`）；停手后按歌曲节奏再多播 `music.tail_beats` 拍，
   然后**缓缓退回背景音**——渐弱时长**随连击数增加**（`fade_min_ms`≈2.5s 起，每连击递增，封顶 `fade_max_ms`≈10s），

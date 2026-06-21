@@ -44,6 +44,7 @@ M.defaults = {
   music = {
     file = nil,
     library = nil,
+    order = "sequence",
     volume = 70,
     background_volume = 15,
     swell_ms = 500,
