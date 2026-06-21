@@ -14,7 +14,7 @@
   - `rhythm`（音游）—— 按固定 / 自适应 BPM 网格判定击键（PERFECT / GOOD / MISS），音乐连续播放、你去踩点。
 - **节奏音乐**：播放你自备的（无版权）音频文件；flow 模式下由敲击驱动暂停/续播（从原位接续，保持连贯）。
 - 连击计数、分数，以及实时 BPM 估算。
-- 通过 extmark 在缓冲区行尾直接弹判定（不额外开窗口）。
+- 通过 extmark 在缓冲区行尾直接弹判定，带**闪光 + 星芒拖尾**动画（连击越高拖尾越长，`ui.effects` 可关）。
 - 状态栏组件。
 - 可插拔的音频后端（`none` / `system` / `rpc`）。
 
@@ -80,7 +80,7 @@ require("musicode").setup({
     ewma_alpha = 0.25,       -- 节奏估算的平滑系数
     perfect_ratio = 0.30,    -- 与预期间隔相差 30% 以内 -> PERFECT
     good_ratio = 0.80,
-    pause_ms = 1500,         -- 间隔更长 -> 视为思考停顿（断连击，不判 Miss）
+    pause_ms = 2000,         -- 间隔更长 -> 视为思考停顿（断连击，不判 Miss）
     min_interval_ms = 20,
     adaptive = true,         -- 按你的节奏稳定度自动调整判定容差
   },
@@ -93,7 +93,7 @@ require("musicode").setup({
     adaptive = true,         -- 按你的自然击键速度自动选择目标 BPM
   },
   score = { perfect = 100, good = 50, combo_bonus = 5 },
-  ui = { judgment = true, judgment_ttl_ms = 350 },
+  ui = { judgment = true, judgment_ttl_ms = 350, effects = true },  -- effects: 闪光+星芒拖尾动画
   sound = { backend = "none", drums = true },  -- backend: "none"|"system"|"rpc"；drums: rpc 下按键拍点音（木琴/五声音阶）
   stats = { window = 200 },        -- 滚动节奏画像的样本窗口
   log = { enabled = false, flush_every = 50 },  -- 本地节奏日志（opt-in）

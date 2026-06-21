@@ -8,7 +8,7 @@ M.defaults = {
     ewma_alpha = 0.25,
     perfect_ratio = 0.30,
     good_ratio = 0.80,
-    pause_ms = 1500,
+    pause_ms = 2000,
     min_interval_ms = 20,
     adaptive = true,
   },
@@ -28,6 +28,7 @@ M.defaults = {
   ui = {
     judgment = true,
     judgment_ttl_ms = 350,
+    effects = true,
   },
   sound = {
     backend = "none",
