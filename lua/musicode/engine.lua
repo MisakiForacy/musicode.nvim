@@ -1,10 +1,12 @@
 local cfg = require("musicode.config")
+local stats = require("musicode.stats")
 
 local M = {}
 
 local state = {
   mode = "flow",
   last_ts = nil,
+  stats_last = nil,
   ewma = nil,
   t0 = nil,
   combo = 0,
@@ -19,6 +21,7 @@ local state = {
 
 function M.reset()
   state.last_ts = nil
+  state.stats_last = nil
   state.ewma = nil
   state.t0 = nil
   state.combo = 0
@@ -46,6 +49,36 @@ end
 
 function M.state()
   return state
+end
+
+function M.effective_bpm()
+  local o = cfg.options.rhythm
+  if not o.adaptive then
+    return o.bpm
+  end
+  if stats.count() < 30 then
+    return o.bpm
+  end
+  local med = stats.median()
+  if med <= 0 then
+    return o.bpm
+  end
+  local bpm = math.floor(60000 / (med * o.subdivisions) + 0.5)
+  return math.max(40, math.min(300, bpm))
+end
+
+local function flow_windows(o)
+  if not o.adaptive or stats.count() < 20 then
+    return o.perfect_ratio, o.good_ratio
+  end
+  local m = stats.mean()
+  if m <= 0 then
+    return o.perfect_ratio, o.good_ratio
+  end
+  local cv = stats.std() / m
+  local pr = math.min(o.perfect_ratio * (1 + cv), 0.6)
+  local gr = math.min(o.good_ratio * (1 + cv), 1.5)
+  return pr, gr
 end
 
 local function bump(judgment)
@@ -88,11 +121,12 @@ local function flow_feed(now)
     judgment = "good"
     bump("good")
   else
+    local pr, gr = flow_windows(o)
     local ratio = math.abs(dt - state.ewma) / state.ewma
-    if ratio <= o.perfect_ratio then
+    if ratio <= pr then
       judgment = "perfect"
       bump("perfect")
-    elseif ratio <= o.good_ratio then
+    elseif ratio <= gr then
       judgment = "good"
       bump("good")
     else
@@ -106,14 +140,15 @@ end
 
 local function rhythm_feed(now)
   local o = cfg.options.rhythm
-  state.bpm = o.bpm
+  local bpm = M.effective_bpm()
+  state.bpm = bpm
   if not state.t0 then
     state.t0 = now
     state.last_ts = now
     return { judgment = "start", combo = state.combo, score = state.score, bpm = state.bpm }
   end
   state.last_ts = now
-  local period = (60000 / o.bpm) / o.subdivisions
+  local period = (60000 / bpm) / o.subdivisions
   local phase = (now - state.t0) % period
   local dist = math.min(phase, period - phase)
   local judgment
@@ -132,6 +167,13 @@ end
 
 function M.feed(now)
   state.total = state.total + 1
+  if state.stats_last then
+    local dt = now - state.stats_last
+    if dt > 0 and dt <= cfg.options.flow.pause_ms then
+      stats.record(dt)
+    end
+  end
+  state.stats_last = now
   if state.mode == "rhythm" then
     return rhythm_feed(now)
   end

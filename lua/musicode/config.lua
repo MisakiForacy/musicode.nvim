@@ -10,6 +10,7 @@ M.defaults = {
     good_ratio = 0.80,
     pause_ms = 1500,
     min_interval_ms = 20,
+    adaptive = true,
   },
   rhythm = {
     bpm = 120,
@@ -17,6 +18,7 @@ M.defaults = {
     perfect_window_ms = 40,
     good_window_ms = 90,
     metronome = true,
+    adaptive = true,
   },
   score = {
     perfect = 100,
@@ -29,6 +31,21 @@ M.defaults = {
   },
   sound = {
     backend = "none",
+    drums = true,
+  },
+  stats = {
+    window = 200,
+  },
+  log = {
+    enabled = false,
+    flush_every = 50,
+  },
+  music = {
+    file = nil,
+    volume = 70,
+    gate = true,
+    idle_ms = 1200,
+    autostart = false,
   },
 }
 

@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 rodio = "0.17"
+rustfft = "6"
 
 [profile.release]
 opt-level = 3

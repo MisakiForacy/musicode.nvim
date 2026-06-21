@@ -16,5 +16,13 @@ luac.out
 daemon/target/
 target/
 
+# User-provided audio (never committed; bring your own royalty-free files)
+src/
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.m4a
+
 # Local notes
 .scratch/
