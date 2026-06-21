@@ -6,6 +6,7 @@ local sound = require("musicode.sound")
 local daemon = require("musicode.daemon")
 local stats = require("musicode.stats")
 local log = require("musicode.log")
+local personalize = require("musicode.personalize")
 
 local M = {}
 
@@ -221,6 +222,8 @@ function M.stats()
     "samples   : " .. stats.count(),
     "interval  : " .. string.format("%.0f ms (median %.0f)", stats.mean(), stats.median()),
     "adapt bpm : " .. engine.effective_bpm(),
+    "difficulty: " .. string.format("%.2f", engine.difficulty()),
+    "skill     : " .. (personalize.skill() and string.format("%.2f", personalize.skill()) or "n/a"),
     "logging   : " .. (log.is_enabled() and ("on -> " .. tostring(log.path())) or "off"),
   }
   vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
@@ -241,6 +244,21 @@ function M.toggle_log(value)
     vim.notify("musicode logging off", vim.log.levels.INFO)
   end
   return v
+end
+
+function M.train()
+  local p, err = personalize.train_from_log()
+  if not p then
+    vim.notify("musicode train: " .. tostring(err), vim.log.levels.WARN)
+    return
+  end
+  if cfg.options.personalize.enabled then
+    engine.set_difficulty(personalize.difficulty())
+  end
+  vim.notify(
+    string.format("musicode trained: skill %.2f, %d samples", p.skill or 0, (p.global and p.global.n) or 0),
+    vim.log.levels.INFO
+  )
 end
 
 function M.start_music(file)
@@ -310,6 +328,10 @@ function M.setup(opts)
   cfg.setup(opts)
   stats.configure(cfg.options.stats.window)
   log.configure(cfg.options.log)
+  personalize.load()
+  if cfg.options.personalize.enabled then
+    engine.set_difficulty(personalize.difficulty())
+  end
   ui.setup_highlights()
   local grp = vim.api.nvim_create_augroup("MusicodeCore", { clear = true })
   vim.api.nvim_create_autocmd("ColorScheme", {

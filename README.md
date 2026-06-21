@@ -56,6 +56,7 @@ use({
 :MusicodeReset           " 重置本次会话
 :MusicodeLog [on|off]    " 开关本地击键节奏日志（默认关闭）
 :MusicodeMusic [on|off|<file>]  " 开/关背景音乐，或指定音频文件（需 rpc 后端）
+:MusicodeTrain           " 从本地节奏日志训练个人画像（个性化难度）
 ```
 
 进入插入模式开始打字——判定文字（`PERFECT x12`、`GOOD` 等）会出现在当前行行尾。
@@ -100,7 +101,7 @@ require("musicode").setup({
   music = {
     file = nil,             -- 你自备的（无版权）音频文件路径，需 rpc 后端
     volume = 70,            -- 前景（敲码时）音量 0..100
-    background_volume = 25, -- 背景（停手时）音量；音乐始终播放、不暂停
+    background_volume = 15, -- 背景（停手时）音量；音乐始终播放、不暂停
     swell_ms = 500,         -- 敲码时从背景渐强到前景的时长
     gate = true,            -- flow 模式：敲击驱动音量渐强/渐弱
     tail_beats = 4,         -- 停手后按歌曲 BPM 再多播几拍才开始渐弱
@@ -109,6 +110,12 @@ require("musicode").setup({
     fade_per_combo_ms = 50, -- 渐弱时长随连击数增长（每连击 +50ms，封顶 fade_max_ms）
     idle_ms = 1200,         -- 无法得知 BPM 时的回退延时
     autostart = false,      -- enable 时若已配置 file 则自动开始
+  },
+  personalize = { enabled = true },  -- 启动时加载 profile.json，按技能初始化难度
+  difficulty = {
+    enabled = true,         -- 在线自适应难度：把判定窗口朝目标命中率自动收紧/放宽
+    target_perfect = 0.55,  -- 目标 PERFECT 比例
+    step = 0.04, min = 0.6, max = 1.8,
   },
 })
 ```
@@ -153,6 +160,20 @@ require("musicode").setup({
   击键节奏以 JSONL 追加写入 `stdpath("data")/musicode/rhythm.jsonl`（可用 `log.path` 自定义）。
   数据仅保存在本地，供后续统计与个性化训练使用。
 
+## 个性化 & 自适应难度
+
+- **个人节奏画像**：开启日志攒一段数据后，`:MusicodeTrain` 会从 `rhythm.jsonl` 学习你的
+  击键画像（按文件类型的间隔中位数/标准差 + 命中率 → 技能值 `skill`），写入
+  `stdpath("data")/musicode/profile.json`；启动时自动加载，并据 `skill` 初始化判定难度。
+- **在线自适应难度**（`difficulty.enabled`）：游玩中持续把判定窗口朝 `target_perfect`
+  自动**收紧/放宽**——打得越准越难，反之更宽松。`:MusicodeStats` 可看当前 `difficulty` 与 `skill`。
+- **可选的离线训练器**：`train/train.py`（纯标准库）从 `rhythm.jsonl` 生成同构的
+  `profile.json`，作为接入更重 / 神经网络模型的扩展点：
+  ```sh
+  python train/train.py
+  python train/train.py --log path/rhythm.jsonl --out path/profile.json
+  ```
+
 ## 节奏音乐（flow 模式核心）
 
 flow 模式的核心玩法：**让音乐随你的敲击保持连贯**。
@@ -178,7 +199,7 @@ flow 模式的核心玩法：**让音乐随你的敲击保持连贯**。
 - [x] Rust + rodio/cpal 配套守护进程（基于行协议）实现低延迟音频与节拍器。
 - [x] 本地击键节奏日志（opt-in）+ 统计式自适应 tempo。
 - [x] 歌曲鼓点提取（谱通量起音检测，输出 `*.beats.json`）+ 按键拍点吸附到真实鼓点。
-- [ ] 可选的深度学习个性化：节奏预测 / 自适应难度。
+- [x] 个性化：从节奏日志学习个人画像（`:MusicodeTrain` / `train/train.py`）+ 在线自适应难度；可接入更重 / 神经模型。
 
 ## 许可证
 

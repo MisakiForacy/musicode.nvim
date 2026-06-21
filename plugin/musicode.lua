@@ -59,3 +59,7 @@ vim.api.nvim_create_user_command("MusicodeMusic", function(a)
     mc.start_music(a.args)
   end
 end, { nargs = "?", complete = "file" })
+
+vim.api.nvim_create_user_command("MusicodeTrain", function()
+  require("musicode").train()
+end, {})

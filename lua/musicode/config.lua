@@ -44,7 +44,7 @@ M.defaults = {
   music = {
     file = nil,
     volume = 70,
-    background_volume = 25,
+    background_volume = 15,
     swell_ms = 500,
     gate = true,
     idle_ms = 1200,
@@ -53,6 +53,16 @@ M.defaults = {
     fade_max_ms = 10000,
     fade_per_combo_ms = 50,
     autostart = false,
+  },
+  personalize = {
+    enabled = true,
+  },
+  difficulty = {
+    enabled = true,
+    target_perfect = 0.55,
+    step = 0.04,
+    min = 0.6,
+    max = 1.8,
   },
 }
 
