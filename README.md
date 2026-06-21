@@ -97,13 +97,34 @@ require("musicode").setup({
 
 - `none` —— 仅视觉（默认；零延迟、零依赖）。
 - `system` —— Windows `[console]::beep` 占位音。能出声但延迟高，仅用于体验手感。
-- `rpc` —— 为即将到来的 Rust 音频守护进程预留的接口位（低延迟采样 + 真正的节拍器）。
-  把你的传输实现赋给 `require("musicode.sound").rpc_send` 即可。
+- `rpc` —— 连接 Rust 音频守护进程（`daemon/`），低延迟实时音效 + 真正的节拍器。
+  启用方式：先构建守护进程（见下），再 `setup({ sound = { backend = "rpc" } })`。
+
+## 构建音频守护进程（可选，用于 `rpc` 后端）
+
+需要 Rust 工具链（`cargo`）。在插件目录下执行：
+
+```sh
+cd daemon
+cargo build --release
+```
+
+构建产物为 `daemon/target/release/musicode-daemon`（Windows 为 `.exe`）。插件会自动
+发现它；如放在别处可用 `sound.daemon_cmd` 指定：
+
+```lua
+require("musicode").setup({
+  sound = { backend = "rpc", daemon_cmd = { "/abs/path/to/musicode-daemon" } },
+})
+```
+
+守护进程协议极简：Neovim 通过 stdin 按行发送事件（`perfect` / `good` / `miss` /
+`tick` / `quit`），守护进程即时合成对应音效。若音频设备初始化失败，会静默降级而不影响编辑。
 
 ## 路线图
 
 - [x] 纯 Lua MVP：击键捕获、双模式判定、连击、判定弹窗、状态栏。
-- [ ] Rust + cpal/rodio 配套守护进程，经 msgpack-RPC 实现 <20ms 音频。
+- [x] Rust + rodio/cpal 配套守护进程（基于行协议）实现低延迟音频与节拍器。
 - [ ] 本地击键节奏日志（opt-in）+ 统计式自适应 tempo。
 - [ ] 可选的深度学习个性化：节奏预测 / 自适应难度。
 

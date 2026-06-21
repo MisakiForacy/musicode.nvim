@@ -1,0 +1,17 @@
+[package]
+name = "musicode-daemon"
+version = "0.1.0"
+edition = "2021"
+description = "Low-latency audio companion daemon for musicode.nvim"
+license = "MIT"
+
+[[bin]]
+name = "musicode-daemon"
+path = "src/main.rs"
+
+[dependencies]
+rodio = "0.17"
+
+[profile.release]
+opt-level = 3
+lto = true

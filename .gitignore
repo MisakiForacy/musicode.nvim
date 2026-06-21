@@ -12,5 +12,9 @@ doc/tags
 luac.out
 *.rock
 
+# Rust daemon build artifacts
+daemon/target/
+target/
+
 # Local notes
 .scratch/

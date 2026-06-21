@@ -3,6 +3,7 @@ local engine = require("musicode.engine")
 local capture = require("musicode.capture")
 local ui = require("musicode.ui")
 local sound = require("musicode.sound")
+local daemon = require("musicode.daemon")
 
 local M = {}
 
@@ -45,6 +46,9 @@ function M.enable()
   ui.setup_highlights()
   engine.set_mode(cfg.options.mode)
   capture.start(cfg.options, on_event)
+  if cfg.options.sound.backend == "rpc" then
+    daemon.start(cfg.options.sound)
+  end
   start_metronome()
   vim.notify("musicode enabled (" .. cfg.options.mode .. ")", vim.log.levels.INFO)
 end
@@ -53,6 +57,7 @@ function M.disable()
   cfg.options.enabled = false
   capture.stop()
   stop_metronome()
+  daemon.stop()
   ui.clear()
   vim.notify("musicode disabled", vim.log.levels.INFO)
 end
