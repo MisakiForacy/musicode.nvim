@@ -1,0 +1,16 @@
+# Editor / OS
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Vim help tags
+doc/tags
+
+# Lua / luarocks
+luac.out
+*.rock
+
+# Local notes
+.scratch/
