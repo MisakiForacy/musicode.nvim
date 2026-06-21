@@ -1,32 +1,27 @@
 # musicode.nvim
 
-Type code (and prose) with the feel of a rhythm game. musicode turns your keystrokes
-into real-time combos and judgments, so writing has momentum — built for people with a
-continuous typing flow such as competitive programmers and web novelists.
+让写代码 / 写文像玩音游一样有节奏感。musicode 把你的每次击键变成实时连击与判定，
+让敲键带上动量——专为有连贯敲键习惯的人打造，比如算法竞赛选手和网文写手。
 
-让写代码 / 写文像玩音游一样有节奏感：实时连击、判定特效，跟随你自己的击键节奏，
-长时间停顿不会被判 Miss。
+> 状态：MVP（纯 Lua，零依赖）。低延迟音频将由配套的 Rust 守护进程提供，已列入路线图
+> （`sound.backend = "rpc"`）。
 
-> Status: MVP (pure Lua, zero dependencies). Low-latency audio via a companion Rust
-> daemon is on the roadmap (`sound.backend = "rpc"`).
+## 特性
 
-## Features
+- **两种可切换模式**
+  - `flow`（心流）—— 跟随*你自己*的节奏（对击键间隔做 EWMA 平滑）。长时间思考停顿
+    只会中断连击，**不会**被判成 Miss。
+  - `rhythm`（音游）—— 按固定 BPM 网格判定击键（PERFECT / GOOD / MISS），像真正的音游。
+- 连击计数、分数，以及实时 BPM 估算。
+- 通过 extmark 在缓冲区行尾直接弹判定（不额外开窗口）。
+- 状态栏组件。
+- 可插拔的音频后端（`none` / `system` / `rpc`）。
 
-- **Two switchable modes**
-  - `flow` — follows *your own* cadence (EWMA of keystroke intervals). Long thinking
-    pauses only break the combo, they are never penalized as a miss.
-  - `rhythm` — judges keystrokes against a fixed BPM grid (PERFECT / GOOD / MISS),
-    like a real rhythm game.
-- Combo counter, score, and live BPM estimate.
-- In-buffer judgment popups via extmarks (no extra UI window).
-- Statusline component.
-- Pluggable sound backend (`none` / `system` / `rpc`).
-
-## Requirements
+## 环境要求
 
 - Neovim >= 0.9
 
-## Installation
+## 安装
 
 ### lazy.nvim
 
@@ -50,48 +45,47 @@ use({
 })
 ```
 
-## Usage
+## 使用
 
 ```vim
-:MusicodeToggle          " enable / disable
-:MusicodeMode flow       " switch to flow mode
-:MusicodeMode rhythm     " switch to rhythm-game mode
-:MusicodeStats           " show session score / combo / accuracy
-:MusicodeReset           " reset the session
+:MusicodeToggle          " 开启 / 关闭
+:MusicodeMode flow       " 切到心流模式
+:MusicodeMode rhythm     " 切到音游模式
+:MusicodeStats           " 查看本次的分数 / 连击 / 命中
+:MusicodeReset           " 重置本次会话
 ```
 
-Enter insert mode and start typing — judgment text (`PERFECT x12`, `GOOD`, ...) appears
-at the end of the line.
+进入插入模式开始打字——判定文字（`PERFECT x12`、`GOOD` 等）会出现在当前行行尾。
 
-### Statusline
+### 状态栏
 
 ```lua
--- e.g. with lualine
+-- 以 lualine 为例
 { function() return require("musicode").statusline() end }
 ```
 
-## Configuration
+## 配置
 
-`setup()` accepts the following options (defaults shown):
+`setup()` 接受以下选项（下面是默认值）：
 
 ```lua
 require("musicode").setup({
   enabled = false,
   mode = "flow",            -- "flow" | "rhythm"
-  capture = "insert",        -- "insert" (InsertCharPre) | "all" (every key in insert mode)
+  capture = "insert",        -- "insert"（InsertCharPre）| "all"（插入模式下的每个按键）
   flow = {
-    ewma_alpha = 0.25,       -- smoothing for the cadence estimate
-    perfect_ratio = 0.30,    -- within 30% of expected interval -> PERFECT
+    ewma_alpha = 0.25,       -- 节奏估算的平滑系数
+    perfect_ratio = 0.30,    -- 与预期间隔相差 30% 以内 -> PERFECT
     good_ratio = 0.80,
-    pause_ms = 1500,         -- longer gap -> thinking pause (breaks combo, no miss)
+    pause_ms = 1500,         -- 间隔更长 -> 视为思考停顿（断连击，不判 Miss）
     min_interval_ms = 20,
   },
   rhythm = {
     bpm = 120,
-    subdivisions = 4,        -- grid resolution per beat
+    subdivisions = 4,        -- 每拍的网格细分数
     perfect_window_ms = 40,
     good_window_ms = 90,
-    metronome = true,        -- audible tick (needs a non-"none" sound backend)
+    metronome = true,        -- 节拍器滴答声（需要非 "none" 的音频后端）
   },
   score = { perfect = 100, good = 50, combo_bonus = 5 },
   ui = { judgment = true, judgment_ttl_ms = 350 },
@@ -99,21 +93,20 @@ require("musicode").setup({
 })
 ```
 
-### Sound backends
+### 音频后端
 
-- `none` — visual only (default; zero latency, zero dependencies).
-- `system` — Windows `[console]::beep` placeholder. Audible but high latency; for
-  trying the feel only.
-- `rpc` — reserved seam for the upcoming Rust audio daemon (low-latency samples and a
-  real metronome). Set `require("musicode.sound").rpc_send` to your transport.
+- `none` —— 仅视觉（默认；零延迟、零依赖）。
+- `system` —— Windows `[console]::beep` 占位音。能出声但延迟高，仅用于体验手感。
+- `rpc` —— 为即将到来的 Rust 音频守护进程预留的接口位（低延迟采样 + 真正的节拍器）。
+  把你的传输实现赋给 `require("musicode.sound").rpc_send` 即可。
 
-## Roadmap
+## 路线图
 
-- [x] Pure-Lua MVP: capture, dual-mode judgment, combo, judgment popups, statusline.
-- [ ] Rust + cpal/rodio companion daemon over msgpack-RPC for <20ms audio.
-- [ ] Local keystroke-rhythm logging (opt-in) and statistical adaptive tempo.
-- [ ] Optional deep-learning personalization of cadence / adaptive difficulty.
+- [x] 纯 Lua MVP：击键捕获、双模式判定、连击、判定弹窗、状态栏。
+- [ ] Rust + cpal/rodio 配套守护进程，经 msgpack-RPC 实现 <20ms 音频。
+- [ ] 本地击键节奏日志（opt-in）+ 统计式自适应 tempo。
+- [ ] 可选的深度学习个性化：节奏预测 / 自适应难度。
 
-## License
+## 许可证
 
 [MIT](./LICENSE)
