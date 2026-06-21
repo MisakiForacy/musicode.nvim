@@ -43,6 +43,7 @@ M.defaults = {
   },
   music = {
     file = nil,
+    library = nil,
     volume = 70,
     background_volume = 15,
     swell_ms = 500,

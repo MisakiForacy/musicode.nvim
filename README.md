@@ -57,6 +57,8 @@ use({
 :MusicodeLog [on|off]    " 开关本地击键节奏日志（默认关闭）
 :MusicodeMusic [on|off|<file>]  " 开/关背景音乐，或指定音频文件（需 rpc 后端）
 :MusicodeTrain           " 从本地节奏日志训练个人画像（个性化难度）
+:MusicodeLibrary         " 扫描 music.library 文件夹并自动提取每首的鼓点
+:MusicodeNext / :MusicodePrev  " 切换曲库中的上一首 / 下一首
 ```
 
 进入插入模式开始打字——判定文字（`PERFECT x12`、`GOOD` 等）会出现在当前行行尾。
@@ -99,7 +101,8 @@ require("musicode").setup({
   stats = { window = 200 },        -- 滚动节奏画像的样本窗口
   log = { enabled = false, flush_every = 50 },  -- 本地节奏日志（opt-in）
   music = {
-    file = nil,             -- 你自备的（无版权）音频文件路径，需 rpc 后端
+    file = nil,             -- 单曲：你自备的（无版权）音频文件路径，需 rpc 后端
+    library = nil,          -- 曲库：一个文件夹；其中每首会自动提取鼓点（缓存为 *.beats.json）
     volume = 70,            -- 前景（敲码时）音量 0..100
     background_volume = 15, -- 背景（停手时）音量；音乐始终播放、不暂停
     swell_ms = 500,         -- 敲码时从背景渐强到前景的时长
@@ -180,6 +183,9 @@ flow 模式的核心玩法：**让音乐随你的敲击保持连贯**。
 
 - 需要 `sound.backend = "rpc"`（已构建守护进程）并提供一个**你自备的、无版权**的音频文件。
 - 设置 `music.file` 后用 `:MusicodeMusic on`（或 `:MusicodeMusic <文件>`）开始。
+- **自定义曲库**：把一个文件夹设为 `music.library`，其中每首音频在启动 / `:MusicodeLibrary` 时都会
+  **自动提取鼓点**（守护进程 `analyze`，缓存为 `*.beats.json`，已缓存的跳过）；用 `:MusicodeNext` /
+  `:MusicodePrev` 切歌，`:MusicodeMusic`（无参）在未指定单曲时自动从曲库取。
 - flow 模式（音量包络）：背景音乐**始终播放**、平时较轻（`background_volume`）；连续敲码（含退格）时在
   `swell_ms`（≈0.5s）内**渐强**到前景音量（`volume`）；停手后按歌曲节奏再多播 `music.tail_beats` 拍，
   然后**缓缓退回背景音**——渐弱时长**随连击数增加**（`fade_min_ms`≈2.5s 起，每连击递增，封顶 `fade_max_ms`≈10s），

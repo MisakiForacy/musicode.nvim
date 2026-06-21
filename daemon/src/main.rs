@@ -236,6 +236,50 @@ fn write_sidecar(path: &str, track_secs: f64, bpm: f64, onsets: &[f64]) {
     let _ = std::fs::write(format!("{path}.beats.json"), json);
 }
 
+fn parse_after(s: &str, key: &str) -> Option<f64> {
+    let i = s.find(key)? + key.len();
+    let rest = &s[i..];
+    let endi = rest.find(|c: char| c == ',' || c == '}' || c == ']').unwrap_or(rest.len());
+    rest[..endi].trim().parse::<f64>().ok()
+}
+
+fn read_sidecar(path: &str) -> Option<(f64, Vec<f64>)> {
+    let s = std::fs::read_to_string(format!("{path}.beats.json")).ok()?;
+    let ts = parse_after(&s, "\"track_secs\":")?;
+    let start = s.find("\"onsets\":[")? + "\"onsets\":[".len();
+    let end = s[start..].find(']')? + start;
+    let onsets: Vec<f64> = s[start..end]
+        .split(',')
+        .filter_map(|x| x.trim().parse::<f64>().ok())
+        .collect();
+    Some((ts, onsets))
+}
+
+fn analyze_file(path: &str) {
+    match File::open(path) {
+        Ok(f) => match Decoder::new(BufReader::new(f)) {
+            Ok(dec) => {
+                let ch = dec.channels();
+                let sr = dec.sample_rate();
+                let samples: Vec<i16> = dec.collect();
+                let ons = detect_onsets(&samples, ch, sr);
+                let secs = samples.len() as f64 / ch.max(1) as f64 / sr as f64;
+                let bpm = estimate_bpm(&ons);
+                write_sidecar(path, secs, bpm, &ons);
+                eprintln!(
+                    "musicode-daemon: analyzed {} onsets, {:.1}s, ~{} bpm: {}",
+                    ons.len(),
+                    secs,
+                    bpm,
+                    path
+                );
+            }
+            Err(e) => eprintln!("musicode-daemon: decode failed: {e}"),
+        },
+        Err(e) => eprintln!("musicode-daemon: cannot open '{path}': {e}"),
+    }
+}
+
 fn nearest_onset(onsets: &[f64], pos: f64, track: f64) -> (f64, usize) {
     if onsets.is_empty() {
         return (f64::INFINITY, 0);
@@ -418,16 +462,18 @@ fn main() {
                                 let channels = dec.channels();
                                 let sr = dec.sample_rate();
                                 let samples: Vec<i16> = dec.collect();
-                                onsets = detect_onsets(&samples, channels, sr);
                                 track_secs =
                                     samples.len() as f64 / channels.max(1) as f64 / sr as f64;
-                                let bpm = estimate_bpm(&onsets);
-                                write_sidecar(path, track_secs, bpm, &onsets);
+                                if let Some((_, cached)) = read_sidecar(path) {
+                                    onsets = cached;
+                                } else {
+                                    onsets = detect_onsets(&samples, channels, sr);
+                                    write_sidecar(path, track_secs, estimate_bpm(&onsets), &onsets);
+                                }
                                 eprintln!(
-                                    "musicode-daemon: {} onsets, {:.1}s, ~{} bpm",
+                                    "musicode-daemon: play {} onsets, {:.1}s",
                                     onsets.len(),
-                                    track_secs,
-                                    bpm
+                                    track_secs
                                 );
                                 if let Some(s) = music.take() {
                                     s.stop();
@@ -449,6 +495,12 @@ fn main() {
                         },
                         Err(e) => eprintln!("musicode-daemon: cannot open '{path}': {e}"),
                     }
+                }
+            }
+            "analyze" => {
+                let path = arg.trim();
+                if !path.is_empty() {
+                    analyze_file(path);
                 }
             }
             "" => {}

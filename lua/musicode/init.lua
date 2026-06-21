@@ -7,6 +7,7 @@ local daemon = require("musicode.daemon")
 local stats = require("musicode.stats")
 local log = require("musicode.log")
 local personalize = require("musicode.personalize")
+local library = require("musicode.library")
 
 local M = {}
 
@@ -159,7 +160,11 @@ function M.enable()
     daemon.start(cfg.options.sound)
   end
   update_beat()
-  if cfg.options.music.autostart and cfg.options.music.file then
+  if cfg.options.music.library then
+    library.scan(cfg.options.music.library)
+    library.analyze_all(false)
+  end
+  if cfg.options.music.autostart and (cfg.options.music.file or library.count() > 0) then
     M.start_music()
   end
   start_metronome()
@@ -270,11 +275,14 @@ function M.start_music(file)
   end
   if file then
     m.file = file
+  elseif (not m.file or m.file == "") and library.count() > 0 then
+    m.file = library.current() or library.next()
   end
   if not m.file or m.file == "" then
-    vim.notify("musicode: set music.file to your audio path first", vim.log.levels.WARN)
+    vim.notify("musicode: set music.file or music.library first", vim.log.levels.WARN)
     return false
   end
+  library.set_to(m.file)
   if not daemon.start(s) then
     return false
   end
@@ -314,6 +322,39 @@ function M.toggle_music()
   else
     M.start_music()
   end
+end
+
+function M.music_next()
+  local p = library.next()
+  if p then
+    M.start_music(p)
+  else
+    vim.notify("musicode: empty library (set music.library)", vim.log.levels.WARN)
+  end
+end
+
+function M.music_prev()
+  local p = library.prev()
+  if p then
+    M.start_music(p)
+  end
+end
+
+function M.library_scan()
+  local dir = cfg.options.music.library
+  if not dir or dir == "" then
+    vim.notify("musicode: set music.library to a folder first", vim.log.levels.WARN)
+    return
+  end
+  library.scan(dir)
+  if cfg.options.sound.backend == "rpc" then
+    daemon.start(cfg.options.sound)
+  end
+  local n = library.analyze_all(false)
+  vim.notify(
+    string.format("musicode library: %d tracks, extracting beats for %d", library.count(), n),
+    vim.log.levels.INFO
+  )
 end
 
 function M.statusline()

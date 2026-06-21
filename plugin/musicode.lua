@@ -63,3 +63,15 @@ end, { nargs = "?", complete = "file" })
 vim.api.nvim_create_user_command("MusicodeTrain", function()
   require("musicode").train()
 end, {})
+
+vim.api.nvim_create_user_command("MusicodeLibrary", function()
+  require("musicode").library_scan()
+end, {})
+
+vim.api.nvim_create_user_command("MusicodeNext", function()
+  require("musicode").music_next()
+end, {})
+
+vim.api.nvim_create_user_command("MusicodePrev", function()
+  require("musicode").music_prev()
+end, {})
