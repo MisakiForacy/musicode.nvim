@@ -14,7 +14,7 @@ function M.start(opts, on_event)
     end)
   else
     augroup = vim.api.nvim_create_augroup("MusicodeCapture", { clear = true })
-    vim.api.nvim_create_autocmd("InsertCharPre", {
+    vim.api.nvim_create_autocmd("TextChangedI", {
       group = augroup,
       callback = function()
         on_event()

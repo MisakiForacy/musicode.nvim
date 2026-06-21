@@ -43,8 +43,14 @@ M.defaults = {
   music = {
     file = nil,
     volume = 70,
+    background_volume = 25,
+    swell_ms = 500,
     gate = true,
     idle_ms = 1200,
+    tail_beats = 4,
+    fade_min_ms = 2500,
+    fade_max_ms = 10000,
+    fade_per_combo_ms = 50,
     autostart = false,
   },
 }

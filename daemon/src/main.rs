@@ -189,7 +189,16 @@ fn detect_onsets(samples: &[i16], channels: u16, sr: u32) -> Vec<f64> {
             last = i as i64;
         }
     }
-    onsets
+    let min_gap = 0.28;
+    let mut thinned = Vec::new();
+    let mut last_t = -1.0f64;
+    for &t in &onsets {
+        if t - last_t >= min_gap {
+            thinned.push(t);
+            last_t = t;
+        }
+    }
+    thinned
 }
 
 fn estimate_bpm(onsets: &[f64]) -> f64 {
@@ -282,7 +291,7 @@ fn grid_hit(handle: &Option<OutputStreamHandle>, period_ms: f64, subdivisions: i
     let len = SCALE.len() as i64;
     let degree = ((idx % len) + len) % len;
     let note = SCALE[degree as usize];
-    let amp = 0.16 * (0.6 + 0.4 * close);
+    let amp = 0.10 * (0.6 + 0.4 * close);
     play_mallet(handle, note, 0.26, amp);
 }
 
@@ -308,6 +317,7 @@ fn main() {
     let mut track_secs: f64 = 0.0;
     let mut play_pos_ms: f64 = 0.0;
     let mut play_resume: Option<Instant> = None;
+    let mut last_onset_idx: i64 = -1;
 
     let mut beat_period_ms: f64 = 0.0;
     let mut subdivisions: i64 = 4;
@@ -335,11 +345,12 @@ fn main() {
                         + play_resume.unwrap().elapsed().as_secs_f64() * 1000.0;
                     let pos_secs = (pos_ms / 1000.0).rem_euclid(track_secs);
                     let (dist, idx) = nearest_onset(&onsets, pos_secs, track_secs);
-                    if dist <= 0.09 {
+                    if dist <= 0.055 && idx as i64 != last_onset_idx {
+                        last_onset_idx = idx as i64;
                         let deg = idx % SCALE.len();
-                        let close = (1.0 - dist / 0.09).clamp(0.0, 1.0) as f32;
-                        let amp = 0.20 * (0.55 + 0.45 * close);
-                        play_mallet(&handle, SCALE[deg], 0.26, amp);
+                        let close = (1.0 - dist / 0.055).clamp(0.0, 1.0) as f32;
+                        let amp = 0.10 * (0.6 + 0.4 * close);
+                        play_mallet(&handle, SCALE[deg], 0.18, amp);
                     }
                 } else {
                     grid_hit(&handle, beat_period_ms, subdivisions, beat_t0);
@@ -377,6 +388,7 @@ fn main() {
                 track_secs = 0.0;
                 play_pos_ms = 0.0;
                 play_resume = None;
+                last_onset_idx = -1;
             }
             "musicpause" => {
                 if let Some(s) = &music {
@@ -428,6 +440,7 @@ fn main() {
                                         music = Some(sink);
                                         play_pos_ms = 0.0;
                                         play_resume = Some(Instant::now());
+                                        last_onset_idx = -1;
                                     }
                                     Err(e) => eprintln!("musicode-daemon: sink error: {e}"),
                                 }

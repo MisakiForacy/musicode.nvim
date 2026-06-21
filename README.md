@@ -98,11 +98,17 @@ require("musicode").setup({
   stats = { window = 200 },        -- 滚动节奏画像的样本窗口
   log = { enabled = false, flush_every = 50 },  -- 本地节奏日志（opt-in）
   music = {
-    file = nil,        -- 你自备的（无版权）音频文件路径，需 rpc 后端
-    volume = 70,       -- 0..100
-    gate = true,       -- flow 模式：敲击驱动暂停/续播
-    idle_ms = 1200,    -- 停止敲击多久后暂停音乐
-    autostart = false, -- enable 时若已配置 file 则自动开始
+    file = nil,             -- 你自备的（无版权）音频文件路径，需 rpc 后端
+    volume = 70,            -- 前景（敲码时）音量 0..100
+    background_volume = 25, -- 背景（停手时）音量；音乐始终播放、不暂停
+    swell_ms = 500,         -- 敲码时从背景渐强到前景的时长
+    gate = true,            -- flow 模式：敲击驱动音量渐强/渐弱
+    tail_beats = 4,         -- 停手后按歌曲 BPM 再多播几拍才开始渐弱
+    fade_min_ms = 2500,     -- 渐弱回背景的最短时长
+    fade_max_ms = 10000,    -- 渐弱回背景的最长时长
+    fade_per_combo_ms = 50, -- 渐弱时长随连击数增长（每连击 +50ms，封顶 fade_max_ms）
+    idle_ms = 1200,         -- 无法得知 BPM 时的回退延时
+    autostart = false,      -- enable 时若已配置 file 则自动开始
   },
 })
 ```
@@ -153,8 +159,10 @@ flow 模式的核心玩法：**让音乐随你的敲击保持连贯**。
 
 - 需要 `sound.backend = "rpc"`（已构建守护进程）并提供一个**你自备的、无版权**的音频文件。
 - 设置 `music.file` 后用 `:MusicodeMusic on`（或 `:MusicodeMusic <文件>`）开始。
-- flow 模式：连续敲击时音乐播放；停下超过 `music.idle_ms` 自动**暂停**，再敲又从原位**续播**
-  （不是重头开始）——所以保持连续敲击 = 让音乐不断流。
+- flow 模式（音量包络）：背景音乐**始终播放**、平时较轻（`background_volume`）；连续敲码（含退格）时在
+  `swell_ms`（≈0.5s）内**渐强**到前景音量（`volume`）；停手后按歌曲节奏再多播 `music.tail_beats` 拍，
+  然后**缓缓退回背景音**——渐弱时长**随连击数增加**（`fade_min_ms`≈2.5s 起，每连击递增，封顶 `fade_max_ms`≈10s），
+  连得越久退得越缓；其间一旦再敲键就重新渐强。
 - rhythm 模式：音乐连续播放作为"曲子"，你按节拍踩点。
 - **按键拍点音**：rpc 后端下，击键由守护进程合成**柔和的木琴 / 音乐盒音色（五声音阶）**。
   播放音乐时，**只有当击键落在歌曲真实鼓点（起音）附近时才出声**——加载音乐时即做起音检测（谱通量），

@@ -3,6 +3,7 @@ local sound = require("musicode.sound")
 local M = {}
 
 local job
+local music_bpm
 
 local function plugin_root()
   local src = debug.getinfo(1, "S").source:sub(2)
@@ -40,6 +41,14 @@ function M.start(cfg_sound)
       job = nil
       sound.rpc_send = nil
     end,
+    on_stderr = function(_, data)
+      for _, l in ipairs(data or {}) do
+        local b = l:match("~([%d%.]+) bpm")
+        if b then
+          music_bpm = tonumber(b)
+        end
+      end
+    end,
   })
   if id <= 0 then
     job = nil
@@ -67,6 +76,10 @@ end
 
 function M.is_running()
   return job ~= nil
+end
+
+function M.music_bpm()
+  return music_bpm
 end
 
 return M
