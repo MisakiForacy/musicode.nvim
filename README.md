@@ -58,7 +58,7 @@
 :MusicodeOrder [sequence|shuffle|repeat_one]  " 播放顺序
 :MusicodeVolume [fg] [bg]       " 调音量（加强音 / 背景音）
 :MusicodeStats                  " 查看分数 / 连击 / 状态
-:MusicodeViz                    " 开关右下角节拍脉冲可视化
+:MusicodeViz                    " 开关右下角频谱可视化（默认启动）
 :MusicodeLibrary                " 扫描曲库并提取鼓点
 :MusicodeTrain                  " 从本地日志学习个人难度（需先 :MusicodeLog on）
 ```
@@ -74,8 +74,8 @@ require("musicode").setup({
     library = "/你的本地音乐文件夹",
     autostart = true,
     order = "shuffle",           -- "sequence" | "shuffle" | "repeat_one"
-    volume = 70,                 -- 敲码时音量 0..100
-    background_volume = 15,      -- 停手时音量 0..100
+    volume = 30,                 -- 强音量 0..100
+    background_volume = 10,      -- 弱音量（自动 = 强音量 / 3）
   },
 })
 ```

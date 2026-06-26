@@ -419,7 +419,9 @@ function M.set_fg(v)
     music_vol_cur = v
     sound.rpc_send("musicvol " .. v)
   end
-  vim.notify("musicode 加强音(foreground): " .. v, vim.log.levels.INFO)
+  local bg = math.floor(v / 3)
+  cfg.options.music.background_volume = bg
+  vim.notify("musicode 加强音(foreground): " .. v .. "  背景: " .. bg, vim.log.levels.INFO)
 end
 
 function M.set_bg(v)
