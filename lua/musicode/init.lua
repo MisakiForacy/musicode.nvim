@@ -8,6 +8,7 @@ local stats = require("musicode.stats")
 local log = require("musicode.log")
 local personalize = require("musicode.personalize")
 local library = require("musicode.library")
+local viz = require("musicode.viz")
 
 local M = {}
 
@@ -169,6 +170,9 @@ function M.enable()
     M.start_music()
   end
   start_metronome()
+  if cfg.options.ui and cfg.options.ui.viz then
+    viz.start()
+  end
   vim.notify("musicode enabled (" .. cfg.options.mode .. ")", vim.log.levels.INFO)
 end
 
@@ -177,6 +181,7 @@ function M.disable()
   capture.stop()
   stop_metronome()
   M.stop_music()
+  viz.stop()
   daemon.stop()
   log.flush()
   ui.clear()
@@ -296,10 +301,16 @@ function M.start_music(file)
   if engine.get_mode() == "flow" and m.gate then
     start_vol = bg
   end
+  if vim.fn.filereadable(m.file .. ".beats.json") == 0 then
+    local name = m.file:match("[^/\\]+$") or m.file
+    vim.notify("musicode: analyzing " .. name .. " ...", vim.log.levels.INFO)
+    sound.rpc_send("analyze " .. m.file)
+  end
   sound.rpc_send("musicvol " .. start_vol)
   sound.rpc_send("music " .. m.file)
   music_loaded = true
   music_vol_cur = start_vol
+  viz.set_track(m.file)
   vim.notify("musicode music: " .. m.file, vim.log.levels.INFO)
   return true
 end
@@ -313,6 +324,7 @@ function M.stop_music()
   if sound.rpc_send then
     sound.rpc_send("musicstop")
   end
+  viz.clear_track()
   music_loaded = false
   music_vol_cur = 0
 end
@@ -384,6 +396,10 @@ function M.music_pick()
       M.start_music(choice)
     end
   end)
+end
+
+function M.viz_toggle()
+  viz.toggle()
 end
 
 local function vol_midpoint()

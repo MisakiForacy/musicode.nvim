@@ -103,3 +103,7 @@ vim.api.nvim_create_user_command("MusicodeVolume", function(a)
     mc.set_bg(tonumber(args[2]))
   end
 end, { nargs = "*" })
+
+vim.api.nvim_create_user_command("MusicodeViz", function()
+  require("musicode").viz_toggle()
+end, {})

@@ -225,13 +225,84 @@ fn estimate_bpm(onsets: &[f64]) -> f64 {
     (bpm * 10.0).round() / 10.0
 }
 
-fn write_sidecar(path: &str, track_secs: f64, bpm: f64, onsets: &[f64]) {
+fn compute_bands(samples: &[i16], channels: u16, sr: u32) -> Vec<Vec<f32>> {
+    let ch = channels.max(1) as usize;
+    let n = samples.len() / ch;
+    let win = 2048usize;
+    let hop = (sr as f64 * 0.1) as usize;
+    if n < win || hop == 0 {
+        return Vec::new();
+    }
+    let mut mono = vec![0f32; n];
+    for i in 0..n {
+        let mut s = 0f32;
+        for c in 0..ch {
+            s += samples[i * ch + c] as f32;
+        }
+        mono[i] = s / (ch as f32 * 32768.0);
+    }
+    let hann: Vec<f32> = (0..win)
+        .map(|i| 0.5 - 0.5 * (2.0 * PI * i as f32 / (win as f32 - 1.0)).cos())
+        .collect();
+    let diatonic: [i32; 7] = [0, 2, 4, 5, 7, 9, 11];
+    let bin_hz = sr as f64 / win as f64;
+    let half = win / 2;
+    let mut planner = FftPlanner::<f32>::new();
+    let fft = planner.plan_fft_forward(win);
+    let frames = (n - win) / hop + 1;
+    let mut result = Vec::with_capacity(frames);
+    let mut buf: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; win];
+    for f in 0..frames {
+        let start = f * hop;
+        for i in 0..win {
+            buf[i].re = mono[start + i] * hann[i];
+            buf[i].im = 0.0;
+        }
+        fft.process(&mut buf);
+        let mut e = [0f32; 7];
+        for k in 0..half {
+            let hz = k as f64 * bin_hz;
+            if hz < 20.0 {
+                continue;
+            }
+            let midi = 69.0 + 12.0 * (hz / 440.0).log2();
+            let pc = midi.round() as i32 % 12;
+            let pc = if pc < 0 { pc + 12 } else { pc };
+            let mag = (buf[k].re * buf[k].re + buf[k].im * buf[k].im).sqrt();
+            for b in 0..7 {
+                if pc == diatonic[b] {
+                    e[b] += mag;
+                } else if (pc + 12 - diatonic[b]) % 12 == 1 {
+                    e[b] += mag * 0.3;
+                }
+            }
+        }
+        let mx = e.iter().fold(0.0f32, |a, &v| a.max(v));
+        if mx > 0.0 {
+            for i in 0..7 {
+                e[i] /= mx;
+            }
+        }
+        result.push(e.to_vec());
+    }
+    result
+}
+
+fn write_sidecar(path: &str, track_secs: f64, bpm: f64, onsets: &[f64], bands: &[Vec<f32>]) {
     let list: Vec<String> = onsets.iter().map(|o| format!("{:.3}", o)).collect();
+    let bands_str: Vec<String> = bands
+        .iter()
+        .map(|b| {
+            let inner: Vec<String> = b.iter().map(|x| format!("{:.3}", x)).collect();
+            format!("[{}]", inner.join(","))
+        })
+        .collect();
     let json = format!(
-        "{{\"track_secs\":{:.3},\"bpm\":{:.1},\"onsets\":[{}]}}",
+        "{{\"track_secs\":{:.3},\"bpm\":{:.1},\"onsets\":[{}],\"bands\":[{}]}}",
         track_secs,
         bpm,
-        list.join(",")
+        list.join(","),
+        bands_str.join(",")
     );
     let _ = std::fs::write(format!("{path}.beats.json"), json);
 }
@@ -265,7 +336,8 @@ fn analyze_file(path: &str) {
                 let ons = detect_onsets(&samples, ch, sr);
                 let secs = samples.len() as f64 / ch.max(1) as f64 / sr as f64;
                 let bpm = estimate_bpm(&ons);
-                write_sidecar(path, secs, bpm, &ons);
+                let bands = compute_bands(&samples, ch, sr);
+                write_sidecar(path, secs, bpm, &ons, &bands);
                 eprintln!(
                     "musicode-daemon: analyzed {} onsets, {:.1}s, ~{} bpm: {}",
                     ons.len(),
@@ -468,7 +540,8 @@ fn main() {
                                     onsets = cached;
                                 } else {
                                     onsets = detect_onsets(&samples, channels, sr);
-                                    write_sidecar(path, track_secs, estimate_bpm(&onsets), &onsets);
+                                    let bands = compute_bands(&samples, channels, sr);
+                                    write_sidecar(path, track_secs, estimate_bpm(&onsets), &onsets, &bands);
                                 }
                                 eprintln!(
                                     "musicode-daemon: play {} onsets, {:.1}s",
@@ -502,6 +575,15 @@ fn main() {
                 if !path.is_empty() {
                     analyze_file(path);
                 }
+            }
+            "pos" => {
+                let ms = play_pos_ms
+                    + match play_resume {
+                        Some(r) => r.elapsed().as_secs_f64() * 1000.0,
+                        None => 0.0,
+                    };
+                println!("pos {}", ms as u64);
+                let _ = io::stdout().flush();
             }
             "" => {}
             _ => {}

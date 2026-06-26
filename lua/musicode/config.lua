@@ -29,6 +29,7 @@ M.defaults = {
     judgment = true,
     judgment_ttl_ms = 350,
     effects = true,
+    viz = false,
   },
   sound = {
     backend = "none",

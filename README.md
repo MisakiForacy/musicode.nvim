@@ -58,6 +58,7 @@
 :MusicodeOrder [sequence|shuffle|repeat_one]  " 播放顺序
 :MusicodeVolume [fg] [bg]       " 调音量（加强音 / 背景音）
 :MusicodeStats                  " 查看分数 / 连击 / 状态
+:MusicodeViz                    " 开关右下角节拍脉冲可视化
 :MusicodeLibrary                " 扫描曲库并提取鼓点
 :MusicodeTrain                  " 从本地日志学习个人难度（需先 :MusicodeLog on）
 ```

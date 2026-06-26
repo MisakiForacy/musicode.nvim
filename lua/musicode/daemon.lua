@@ -4,6 +4,7 @@ local M = {}
 
 local job
 local music_bpm
+local pos_ms = 0
 
 local function plugin_root()
   local src = debug.getinfo(1, "S").source:sub(2)
@@ -49,6 +50,14 @@ function M.start(cfg_sound)
         end
       end
     end,
+    on_stdout = function(_, data)
+      for _, l in ipairs(data or {}) do
+        local ms = l:match("^pos (%d+)$")
+        if ms then
+          pos_ms = tonumber(ms)
+        end
+      end
+    end,
   })
   if id <= 0 then
     job = nil
@@ -80,6 +89,16 @@ end
 
 function M.music_bpm()
   return music_bpm
+end
+
+function M.music_pos_ms()
+  return pos_ms
+end
+
+function M.query_pos()
+  if sound.rpc_send then
+    sound.rpc_send("pos")
+  end
 end
 
 return M
