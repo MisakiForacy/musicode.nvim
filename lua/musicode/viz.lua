@@ -93,6 +93,10 @@ local function display()
       heights[c + 1] = math.floor(BAR_MAX * p + 0.5)
     end
   end
+  local vol_ratio = (cfg.options.music.volume or 30) / 100
+  for c = 0, BAR_COLS - 1 do
+    heights[c + 1] = math.floor(heights[c + 1] * vol_ratio + 0.5)
+  end
 
   local lines = {}
   for y = 0, BAR_MAX - 1 do
@@ -118,27 +122,32 @@ local function display()
   end
   lines[#lines + 1] = pbar
   lines[#lines + 1] = string.format(
-    " ♫%d|%d ",
-    cfg.options.music.volume or 70,
-    cfg.options.music.background_volume or 15
+    " ♫%d / %d  ",
+    cfg.options.music.volume or 30,
+    cfg.options.music.background_volume or 10
   )
   pcall(vim.api.nvim_buf_set_lines, buf, 0, -1, false, lines)
   pcall(vim.api.nvim_buf_clear_namespace, buf, ns, 0, -1)
 
   for c = 0, BAR_COLS - 1 do
     local h = heights[c + 1]
+    local cb = 1 + c * 4
     if h > 0 then
       local top = BAR_MAX - h
-      for r = top, top + h - 1 do
-        local cb = 1 + c * 4
-        pcall(vim.api.nvim_buf_add_highlight, buf, ns, HL[c + 1], r, cb, cb + 3)
-      end
+      pcall(vim.api.nvim_buf_set_extmark, buf, ns, top, cb, {
+        end_row = top + h - 1,
+        end_col = cb + 3,
+        hl_group = HL[c + 1],
+      })
     end
     if prev_h[c + 1] > h then
-      for r = BAR_MAX - prev_h[c + 1], BAR_MAX - h - 1 do
-        local cb = 1 + c * 4
-        pcall(vim.api.nvim_buf_add_highlight, buf, ns, HL_DIM, r, cb, cb + 3)
-      end
+      local top = BAR_MAX - prev_h[c + 1]
+      local bot = BAR_MAX - h - 1
+      pcall(vim.api.nvim_buf_set_extmark, buf, ns, top, cb, {
+        end_row = bot,
+        end_col = cb + 3,
+        hl_group = HL_DIM,
+      })
     end
     prev_h[c + 1] = h
   end
